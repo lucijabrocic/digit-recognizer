@@ -1,24 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="hr">
 <head>
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TensorFlow.js Tutorial</title>
-
-  <!-- Import TensorFlow.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.0/dist/tf.min.js"></script>
-  <!-- Import tfjs-vis -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.0.2/dist/tfjs-vis.umd.min.js"></script>
-
-  <!-- Import the data file -->
-  <script src="data.js" type="module"></script>
-
-  <!-- Import the main script file -->
-  <script src="script.js" type="module"></script>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MNIST Prepoznavanje Znamenki</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+    <div class="container">
+        <h1>Prepoznavanje Znamenki</h1>
+        <p class="instruction">Nacrtaj znamenku (0-9) u polju ispod:</p>
+        
+        <div class="canvas-container">
+            <canvas id="canvas" width="280" height="280"></canvas>
+        </div>
+        
+        <div class="buttons">
+            <button id="clearBtn" class="btn">Obriši</button>
+            <button id="predictBtn" class="btn btn-primary">Predvidi</button>
+        </div>
+        
+        <div id="result" class="result hidden">
+            <h2>Rezultat: <span id="prediction"></span></h2>
+            <div class="confidence">Sigurnost: <span id="confidence"></span>%</div>
+        </div>
+        
+        <div id="probabilities" class="probabilities hidden"></div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+    <script src="script.js"></script>
 </body>
 </html>
