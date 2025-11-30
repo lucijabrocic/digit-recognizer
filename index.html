@@ -1,148 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
-<title>AI Digit Recognition</title>
-<style>
-  body { font-family: sans-serif; text-align: center; background: #f7f7f7; }
-  h1 { font-size: 22px; }
-  canvas {
-    background: white;
-    border: 2px solid black;
-    touch-action: none;
-  }
-  .btns button { margin: 6px; padding: 10px 14px; font-size: 15px; }
-</style>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TensorFlow.js Tutorial</title>
 
-<!-- TensorFlow.js -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
+  <!-- Import TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.0/dist/tf.min.js"></script>
+  <!-- Import tfjs-vis -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.0.2/dist/tfjs-vis.umd.min.js"></script>
+
+  <!-- Import the data file -->
+  <script src="data.js" type="module"></script>
+
+  <!-- Import the main script file -->
+  <script src="script.js" type="module"></script>
 
 </head>
+
 <body>
-
-<h1>🧠 Draw a Digit — AI Will Predict It</h1>
-<p>Draw a number (0–9) with your finger:</p>
-
-<canvas id="draw" width="280" height="280"></canvas>
-
-<div class="btns">
-  <button onclick="clearCanvas()">Clear</button>
-  <button onclick="predictDigit()">AI Predict</button>
-</div>
-
-<h2 id="result"></h2>
-
-<script>
-// ----------------- DRAWING SETUP -----------------
-const canvas = document.getElementById("draw");
-const ctx = canvas.getContext("2d");
-ctx.lineWidth = 18;
-ctx.lineCap = "round";
-ctx.strokeStyle = "black";
-
-let drawing = false;
-
-function getPos(e) {
-  const rect = canvas.getBoundingClientRect();
-  if (e.touches) {
-    return {
-      x: e.touches[0].clientX - rect.left,
-      y: e.touches[0].clientY - rect.top
-    };
-  } else {
-    return { x: e.offsetX, y: e.offsetY };
-  }
-}
-
-function startDrawing(e) {
-  e.preventDefault();
-  drawing = true;
-  const pos = getPos(e);
-  ctx.beginPath();
-  ctx.moveTo(pos.x, pos.y);
-}
-
-function stopDrawing(e) {
-  e.preventDefault();
-  drawing = false;
-}
-
-function draw(e) {
-  if (!drawing) return;
-  e.preventDefault();
-  const pos = getPos(e);
-  ctx.lineTo(pos.x, pos.y);
-  ctx.stroke();
-}
-
-canvas.addEventListener("mousedown", startDrawing);
-canvas.addEventListener("mouseup", stopDrawing);
-canvas.addEventListener("mousemove", draw);
-
-canvas.addEventListener("touchstart", startDrawing);
-canvas.addEventListener("touchend", stopDrawing);
-canvas.addEventListener("touchmove", draw);
-
-function clearCanvas() {
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  document.getElementById("result").innerText = "";
-}
-clearCanvas();
-
-// ----------------- LOAD AI MODEL -----------------
-let model;
-
-async function loadModel() {
-  document.getElementById("result").innerText = "Loading AI model...";
-  model = await tf.loadLayersModel(
-    "https://storage.googleapis.com/tfjs-models/tfjs/mnist_tfjs/model.json"
-  );
-  document.getElementById("result").innerText = "Model loaded ✔";
-}
-loadModel();
-
-// ----------------- AI PREDICTION -----------------
-function preprocessImage() {
-  let small = document.createElement("canvas");
-  small.width = small.height = 28;
-  let sctx = small.getContext("2d");
-
-  sctx.drawImage(canvas, 0, 0, 28, 28);
-
-  let imgData = sctx.getImageData(0, 0, 28, 28);
-  let data = imgData.data;
-
-  const input = [];
-
-  for (let i = 0; i < data.length; i += 4) {
-    // grayscale & normalize: invert (0 is white, 1 is black stroke)
-    let v = (255 - data[i]) / 255;
-    input.push(v);
-  }
-
-  return tf.tensor(input, [1, 28, 28, 1]);
-}
-
-async function predictDigit() {
-  if (!model) return;
-
-  const input = preprocessImage();
-  const pred = model.predict(input);
-  const probs = await pred.data();
-
-  let best = 0;
-  for (let i = 1; i < probs.length; i++) {
-    if (probs[i] > probs[best]) best = i;
-  }
-
-  document.getElementById("result").innerHTML =
-    `🤖 <b>AI predicts:</b> ${best} <br>Confidence: ${(probs[best] * 100).toFixed(1)}%`;
-
-  input.dispose();
-  pred.dispose();
-}
-</script>
-
 </body>
 </html>
