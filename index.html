@@ -2,37 +2,38 @@
 <html>
 <head>
 <meta charset="UTF-8" />
-<title>How AI Sees — Draw Demo</title>
+<title>AI Digit Recognition</title>
 <style>
   body { font-family: sans-serif; text-align: center; background: #f7f7f7; }
   h1 { font-size: 22px; }
   canvas {
     background: white;
     border: 2px solid black;
-    touch-action: none; /* IMPORTANT for mobile drawing */
+    touch-action: none;
   }
   .btns button { margin: 6px; padding: 10px 14px; font-size: 15px; }
 </style>
+
+<!-- TensorFlow.js -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
+
 </head>
 <body>
 
-<h1>🧠 How AI Sees Your Drawing</h1>
+<h1>🧠 Draw a Digit — AI Will Predict It</h1>
 <p>Draw a number (0–9) with your finger:</p>
 
 <canvas id="draw" width="280" height="280"></canvas>
 
 <div class="btns">
   <button onclick="clearCanvas()">Clear</button>
-  <button onclick="pixelate()">Pixelate</button>
-  <button onclick="showRGB()">RGB Channels</button>
-  <button onclick="predictDigit()">AI Guess</button>
+  <button onclick="predictDigit()">AI Predict</button>
 </div>
 
-<h3>Output:</h3>
-<div id="output"></div>
+<h2 id="result"></h2>
 
 <script>
-// ---- Drawing ----
+// ----------------- DRAWING SETUP -----------------
 const canvas = document.getElementById("draw");
 const ctx = canvas.getContext("2d");
 ctx.lineWidth = 18;
@@ -41,7 +42,6 @@ ctx.strokeStyle = "black";
 
 let drawing = false;
 
-// helper for coordinates
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
@@ -75,104 +75,72 @@ function draw(e) {
   ctx.stroke();
 }
 
-// Mouse
 canvas.addEventListener("mousedown", startDrawing);
 canvas.addEventListener("mouseup", stopDrawing);
 canvas.addEventListener("mousemove", draw);
 
-// Touch
 canvas.addEventListener("touchstart", startDrawing);
 canvas.addEventListener("touchend", stopDrawing);
 canvas.addEventListener("touchmove", draw);
 
-// ---- Utilities ----
 function clearCanvas() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  document.getElementById("output").innerHTML = "";
+  document.getElementById("result").innerText = "";
 }
 clearCanvas();
 
-// ---- Pixelate ----
-function pixelate() {
-  let off = document.createElement("canvas");
-  off.width = off.height = 28;
-  off.getContext("2d").drawImage(canvas, 0, 0, 28, 28);
+// ----------------- LOAD AI MODEL -----------------
+let model;
 
-  let big = document.createElement("canvas");
-  big.width = big.height = 280;
-  let bctx = big.getContext("2d");
-  bctx.imageSmoothingEnabled = false;
-  bctx.drawImage(off, 0, 0, 28, 28, 0, 0, 280, 280);
-
-  document.getElementById("output").innerHTML =
-    "<p><b>Pixelated (28×28):</b></p>";
-  document.getElementById("output").appendChild(big);
-}
-
-// ---- RGB channels ----
-function showRGB() {
-  const img = ctx.getImageData(0, 0, 280, 280);
-  const { width, height, data } = img;
-
-  function channelCanvas(filter) {
-    let c = document.createElement("canvas");
-    c.width = width; c.height = height;
-    let cx = c.getContext("2d");
-    let d = cx.createImageData(width, height);
-
-    for (let i = 0; i < data.length; i += 4) {
-      d.data[i]   = filter === "r" ? data[i]   : 0;
-      d.data[i+1] = filter === "g" ? data[i+1] : 0;
-      d.data[i+2] = filter === "b" ? data[i+2] : 0;
-      d.data[i+3] = 255;
-    }
-    cx.putImageData(d, 0, 0);
-    return c;
-  }
-
-  document.getElementById("output").innerHTML =
-    "<p><b>RGB Channels:</b></p>";
-
-  ["r","g","b"].forEach(ch =>
-    document.getElementById("output").appendChild(channelCanvas(ch))
+async function loadModel() {
+  document.getElementById("result").innerText = "Loading AI model...";
+  model = await tf.loadLayersModel(
+    "https://storage.googleapis.com/tfjs-models/tfjs/mnist_tfjs/model.json"
   );
+  document.getElementById("result").innerText = "Model loaded ✔";
 }
+loadModel();
 
-// ---- Fake AI digit prediction ----
-function predictDigit() {
-  let mini = document.createElement("canvas");
-  mini.width = mini.height = 28;
-  mini.getContext("2d").drawImage(canvas, 0, 0, 28, 28);
+// ----------------- AI PREDICTION -----------------
+function preprocessImage() {
+  let small = document.createElement("canvas");
+  small.width = small.height = 28;
+  let sctx = small.getContext("2d");
 
-  let img = mini.getContext("2d").getImageData(0, 0, 28, 28);
-  let data = img.data;
+  sctx.drawImage(canvas, 0, 0, 28, 28);
 
-  let sumX = 0, sumY = 0, count = 0;
-  for (let y = 0; y < 28; y++) {
-    for (let x = 0; x < 28; x++) {
-      let i = (y * 28 + x) * 4;
-      let v = 255 - data[i];
-      if (v > 40) {
-        sumX += x;
-        sumY += y;
-        count++;
-      }
-    }
+  let imgData = sctx.getImageData(0, 0, 28, 28);
+  let data = imgData.data;
+
+  const input = [];
+
+  for (let i = 0; i < data.length; i += 4) {
+    // grayscale & normalize: invert (0 is white, 1 is black stroke)
+    let v = (255 - data[i]) / 255;
+    input.push(v);
   }
 
-  let cx = sumX / count;
-  let cy = sumY / count;
+  return tf.tensor(input, [1, 28, 28, 1]);
+}
 
-  let guess = "?";
-  if (count < 40) guess = "1";
-  else if (cy < 10) guess = "7";
-  else if (cx < 10) guess = "0";
-  else if (cx > 18) guess = "3";
-  else guess = "8";
+async function predictDigit() {
+  if (!model) return;
 
-  document.getElementById("output").innerHTML =
-    `<h2>🤖 AI thinks this is: <b>${guess}</b></h2>`;
+  const input = preprocessImage();
+  const pred = model.predict(input);
+  const probs = await pred.data();
+
+  let best = 0;
+  for (let i = 1; i < probs.length; i++) {
+    if (probs[i] > probs[best]) best = i;
+  }
+
+  document.getElementById("result").innerHTML =
+    `🤖 <b>AI predicts:</b> ${best} <br>Confidence: ${(probs[best] * 100).toFixed(1)}%`;
+
+  input.dispose();
+  pred.dispose();
 }
 </script>
 
