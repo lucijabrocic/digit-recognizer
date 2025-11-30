@@ -1,34 +1,245 @@
 <!DOCTYPE html>
 <html lang="hr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MNIST Prepoznavanje Znamenki</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prepoznavanje Znamenki - AI</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body { 
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    text-align: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  
+  .container {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+  }
+  
+  h1 { 
+    font-size: 28px;
+    color: #333;
+    margin-bottom: 10px;
+  }
+  
+  p {
+    color: #666;
+    margin-bottom: 25px;
+    font-size: 16px;
+  }
+  
+  canvas {
+    background: white;
+    border: 3px solid #667eea;
+    border-radius: 10px;
+    touch-action: none;
+    cursor: crosshair;
+    margin-bottom: 20px;
+  }
+  
+  .btns {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 25px;
+  }
+  
+  .btns button { 
+    padding: 12px 30px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+  
+  .btns button:first-child {
+    background: #e0e0e0;
+    color: #333;
+  }
+  
+  .btns button:last-child {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+  
+  .btns button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .btns button:active {
+    transform: translateY(0);
+  }
+  
+  #result {
+    font-size: 20px;
+    color: #667eea;
+    font-weight: 600;
+    padding: 20px;
+    background: #f0f4ff;
+    border-radius: 10px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  @media (max-width: 600px) {
+    .container { padding: 20px; }
+    h1 { font-size: 22px; }
+    canvas { width: 100%; height: auto; }
+    .btns { flex-direction: column; }
+    .btns button { width: 100%; }
+  }
+</style>
+
+<!-- TensorFlow.js -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
+
 </head>
 <body>
-    <div class="container">
-        <h1>Prepoznavanje Znamenki</h1>
-        <p class="instruction">Nacrtaj znamenku (0-9) u polju ispod:</p>
-        
-        <div class="canvas-container">
-            <canvas id="canvas" width="280" height="280"></canvas>
-        </div>
-        
-        <div class="buttons">
-            <button id="clearBtn" class="btn">Obriši</button>
-            <button id="predictBtn" class="btn btn-primary">Predvidi</button>
-        </div>
-        
-        <div id="result" class="result hidden">
-            <h2>Rezultat: <span id="prediction"></span></h2>
-            <div class="confidence">Sigurnost: <span id="confidence"></span>%</div>
-        </div>
-        
-        <div id="probabilities" class="probabilities hidden"></div>
-    </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
-    <script src="script.js"></script>
+
+<div class="container">
+  <h1>🧠 Prepoznavanje Znamenki</h1>
+  <p>Nacrtaj broj (0–9) u polju ispod:</p>
+
+  <canvas id="draw" width="280" height="280"></canvas>
+
+  <div class="btns">
+    <button onclick="clearCanvas()">Obriši</button>
+    <button onclick="predictDigit()">AI Predviđanje</button>
+  </div>
+
+  <div id="result">Model se učitava...</div>
+</div>
+
+<script>
+// ----------------- CRTANJE -----------------
+const canvas = document.getElementById("draw");
+const ctx = canvas.getContext("2d");
+ctx.lineWidth = 18;
+ctx.lineCap = "round";
+ctx.strokeStyle = "black";
+
+let drawing = false;
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  if (e.touches) {
+    return {
+      x: e.touches[0].clientX - rect.left,
+      y: e.touches[0].clientY - rect.top
+    };
+  } else {
+    return { x: e.offsetX, y: e.offsetY };
+  }
+}
+
+function startDrawing(e) {
+  e.preventDefault();
+  drawing = true;
+  const pos = getPos(e);
+  ctx.beginPath();
+  ctx.moveTo(pos.x, pos.y);
+}
+
+function stopDrawing(e) {
+  e.preventDefault();
+  drawing = false;
+}
+
+function draw(e) {
+  if (!drawing) return;
+  e.preventDefault();
+  const pos = getPos(e);
+  ctx.lineTo(pos.x, pos.y);
+  ctx.stroke();
+}
+
+canvas.addEventListener("mousedown", startDrawing);
+canvas.addEventListener("mouseup", stopDrawing);
+canvas.addEventListener("mousemove", draw);
+
+canvas.addEventListener("touchstart", startDrawing);
+canvas.addEventListener("touchend", stopDrawing);
+canvas.addEventListener("touchmove", draw);
+
+function clearCanvas() {
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  document.getElementById("result").innerHTML = "Nacrtaj znamenku...";
+}
+clearCanvas();
+
+// ----------------- UČITAVANJE AI MODELA -----------------
+let model;
+
+async function loadModel() {
+  document.getElementById("result").innerText = "Učitavam AI model...";
+  model = await tf.loadLayersModel(
+    "https://storage.googleapis.com/tfjs-models/tfjs/mnist_tfjs/model.json"
+  );
+  document.getElementById("result").innerHTML = "✅ Model spreman!";
+}
+loadModel();
+
+// ----------------- AI PREDVIĐANJE -----------------
+function preprocessImage() {
+  let small = document.createElement("canvas");
+  small.width = small.height = 28;
+  let sctx = small.getContext("2d");
+
+  sctx.drawImage(canvas, 0, 0, 28, 28);
+
+  let imgData = sctx.getImageData(0, 0, 28, 28);
+  let data = imgData.data;
+
+  const input = [];
+
+  for (let i = 0; i < data.length; i += 4) {
+    // grayscale & normalize: invertiraj (0 je bijela, 1 je crni potez)
+    let v = (255 - data[i]) / 255;
+    input.push(v);
+  }
+
+  return tf.tensor(input, [1, 28, 28, 1]);
+}
+
+async function predictDigit() {
+  if (!model) {
+    document.getElementById("result").innerHTML = "⏳ Model se još učitava...";
+    return;
+  }
+
+  const input = preprocessImage();
+  const pred = model.predict(input);
+  const probs = await pred.data();
+
+  let best = 0;
+  for (let i = 1; i < probs.length; i++) {
+    if (probs[i] > probs[best]) best = i;
+  }
+
+  document.getElementById("result").innerHTML =
+    `🤖 <b>Predviđanje:</b> <span style="font-size:28px;color:#764ba2">${best}</span><br>
+    <span style="font-size:16px;color:#666">Sigurnost: ${(probs[best] * 100).toFixed(1)}%</span>`;
+
+  input.dispose();
+  pred.dispose();
+}
+</script>
+
 </body>
 </html>
